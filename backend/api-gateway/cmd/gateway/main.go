@@ -1,25 +1,31 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
+	"os"
+	"os/signal"
 
-	"github.com/ykshvn/reactive-dsr/api-gateway/internal/config"
+	"github.com/ykshvn/reactive-dsr/api-gateway/internal/app"
+	"github.com/ykshvn/reactive-dsr/api-gateway/internal/logger"
+	"go.uber.org/zap"
 )
 
 func main() {
-	if err := realMain(); err != nil {
+	l, err := logger.NewLogger()
+	if err != nil {
 		log.Fatalf("[ERROR]: %v", err)
+	}
+	defer l.Sync()
+
+	if err := realMain(l); err != nil {
+		l.Fatal("[ERROR]: ", zap.Error(err))
 	}
 }
 
-func realMain() error {
-	cfg, err := config.Load()
-	if err != nil {
-		return err
-	}
+func realMain(l *zap.Logger) error {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
 
-	fmt.Println(cfg)
-
-	return nil
+	return app.Run(ctx, l)
 }
