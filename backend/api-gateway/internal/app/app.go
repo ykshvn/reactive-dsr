@@ -16,7 +16,10 @@ func Run(ctx context.Context, l *zap.Logger) error {
 		return err
 	}
 
-	r := router.NewRouter(cfg, l)
+	r, err := router.NewRouter(cfg, l)
+	if err != nil {
+		return err
+	}
 	srv := server.NewServer(cfg, r)
 
 	go func() {

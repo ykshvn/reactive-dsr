@@ -15,10 +15,13 @@ type Config struct {
 }
 
 type ServerConfig struct {
-	Port         int16         `mapstructure:"port"`
-	ReadTimeout  time.Duration `mapstructure:"read_timeout"`
-	WriteTimeout time.Duration `mapstructure:"write_timeout"`
-	IdleTimeout  time.Duration `mapstructure:"idle_timeout"`
+	Port                  int           `mapstructure:"port"`
+	ReadTimeout           time.Duration `mapstructure:"read_timeout"`
+	WriteTimeout          time.Duration `mapstructure:"write_timeout"`
+	IdleTimeout           time.Duration `mapstructure:"idle_timeout"`
+	MaxIdleConns          int           `mapstructure:"max_idle_conns"`
+	MaxIdleConnsPerHost   int           `mapstructure:"max_idle_conns_per_host"`
+	ResponseHeaderTimeout time.Duration `mapstructure:"response_header_timeout"`
 }
 
 type ServicesConfig struct {
@@ -26,8 +29,8 @@ type ServicesConfig struct {
 }
 
 type RateLimitConfig struct {
-	RequestsPerSecond int16 `mapstructure:"requests_per_second"`
-	Burst             int16 `mapstructure:"burst"`
+	RequestsPerSecond int `mapstructure:"requests_per_second"`
+	Burst             int `mapstructure:"burst"`
 }
 
 type CorsConfig struct {

@@ -6,10 +6,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/ykshvn/reactive-dsr/api-gateway/internal/config"
 	"github.com/ykshvn/reactive-dsr/api-gateway/internal/middleware"
+	"github.com/ykshvn/reactive-dsr/api-gateway/internal/proxy"
 	"go.uber.org/zap"
 )
 
-func NewRouter(cfg *config.Config, l *zap.Logger) *chi.Mux {
+func NewRouter(cfg *config.Config, l *zap.Logger) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
 	// r.Use(middleware.Recoverer)
@@ -33,11 +34,13 @@ func NewRouter(cfg *config.Config, l *zap.Logger) *chi.Mux {
 		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	})
 
-	// Api...
+	// Api/...
+	proxy, err := proxy.NewHTTPProxy(cfg, l)
+	if err != nil {
+		return nil, err
+	}
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/ping", func(w http.ResponseWriter, r *http.Request) {
-			_, _ = w.Write([]byte(`{"message": "api-gateway is alive"}`))
-		})
+		r.Handle("/*", proxy.ProxyHandler())
 	})
 
 	// WebSocket
@@ -45,5 +48,5 @@ func NewRouter(cfg *config.Config, l *zap.Logger) *chi.Mux {
 		// TODO: WS Endpoint Implementation
 	})
 
-	return r
+	return r, nil
 }
