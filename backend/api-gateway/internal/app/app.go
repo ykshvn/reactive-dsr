@@ -16,16 +16,16 @@ func Run(ctx context.Context, l *zap.Logger) error {
 		return err
 	}
 
-	r := router.NewRouter()
+	r := router.NewRouter(cfg, l)
 	srv := server.NewServer(cfg, r)
 
 	go func() {
 		<-ctx.Done()
 		l.Info("Server is shutting down")
-		srv.HttpServer.Shutdown(ctx)
+		srv.HTTPServer.Shutdown(ctx)
 	}()
 
-	l.Info("Starting server")
+	l.Info("Starting server<З")
 	if err := srv.Start(); err != nil && err != http.ErrServerClosed {
 		return err
 	}
