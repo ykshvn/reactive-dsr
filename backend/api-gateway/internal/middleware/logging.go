@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bufio"
+	"errors"
+	"net"
 	"net/http"
 	"time"
 
@@ -12,7 +15,7 @@ func Logging(l *zap.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 
-			rw := &responseWriter{ResponseWriter: w, statusCode: http.StatusOK}
+			rw := &loggingResponseWriter{ResponseWriter: w, statusCode: http.StatusOK}
 			next.ServeHTTP(rw, r)
 
 			duration := time.Since(start)
@@ -28,7 +31,22 @@ func Logging(l *zap.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-type responseWriter struct {
+type loggingResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
+}
+
+func (w *loggingResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := w.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, errors.New("underlying ResponseWriter does not support hijacking")
+	}
+
+	return hj.Hijack()
+}
+
+func (w *loggingResponseWriter) Flush() {
+	if f, ok := w.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
 }

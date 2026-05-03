@@ -13,10 +13,6 @@ import (
 func NewRouter(cfg *config.Config, l *zap.Logger) (*chi.Mux, error) {
 	r := chi.NewRouter()
 
-	// r.Use(middleware.Recoverer)
-	// r.Use(middleware.RealIP)
-	// r.Use(middleware.RequestID)
-
 	// Middleware Chain
 	r.Use(middleware.Chain(
 		middleware.Recovery(l),
@@ -34,19 +30,18 @@ func NewRouter(cfg *config.Config, l *zap.Logger) (*chi.Mux, error) {
 		_, _ = w.Write([]byte(`{"status": "ok"}`))
 	})
 
-	// Api/...
-	proxy, err := proxy.NewHTTPProxy(cfg, l)
+	// Proxy
+	httpProxy, err := proxy.NewHTTPProxy(cfg, l)
 	if err != nil {
 		return nil, err
 	}
 	r.Route("/api", func(r chi.Router) {
-		r.Handle("/*", proxy.ProxyHandler())
+		r.Handle("/*", httpProxy.ProxyHandler())
 	})
 
 	// WebSocket
-	r.Route("/ws/simulation", func(r chi.Router) {
-		// TODO: WS Endpoint Implementation
-	})
+	ws := proxy.NewWSProxy(l)
+	r.Get("/ws/simulation", ws.ServeHTTP)
 
 	return r, nil
 }
