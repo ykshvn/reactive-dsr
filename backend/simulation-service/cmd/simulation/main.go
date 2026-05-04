@@ -2,22 +2,29 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+
+	"github.com/ykshvn/reactive-dsr/simulation-service/internal/handler"
 )
 
-// NOTE: this is for reverse proxy testing
 func main() {
-	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"service": "simulation-service", "message": "Hello from simulation!"}`)
-	})
+	if err := realMain(); err != nil {
+		log.Fatal(err)
+	}
+}
 
-	http.HandleFunc("/graph/generate", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		fmt.Fprintf(w, `{"status": "ok", "nodes": 15, "edges": 42}`)
-	})
+// TODO: Refactor this to different package
+func realMain() error {
+	graphHandler := handler.NewGraphHandler()
 
-	fmt.Println("Simulation service started on localhost:6970")
+	// TODO: Process query params
+	http.HandleFunc("/graph/generate", graphHandler.Generate)
 
-	http.ListenAndServe(":6970", nil)
+	fmt.Println("Simulation Service started on http://localhost:6970")
+
+	if err := http.ListenAndServe(":6970", nil); err != nil {
+		return err
+	}
+	return nil
 }

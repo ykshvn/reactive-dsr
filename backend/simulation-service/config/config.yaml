@@ -1,0 +1,8 @@
+server:
+  port: 6970
+
+graph:
+  max_nodes: 50
+  default_nodes: 20
+  min_degree: 2
+  max_degree: 12
