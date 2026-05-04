@@ -2,7 +2,6 @@
 package proxy
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -45,16 +44,7 @@ func (p *HTTPProxy) ProxyHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 
-		fmt.Println("----------------------------------------")
-		fmt.Println("URL before trim")
-		fmt.Println(r.URL.Path)
-		fmt.Println("----------------------------------------")
 		r.URL.Path = strings.TrimPrefix(r.URL.Path, "/api")
-		fmt.Println("----------------------------------------")
-		fmt.Println("URL after trim")
-		fmt.Println(r.URL.Path)
-		fmt.Println("----------------------------------------")
-
 		p.proxy.ServeHTTP(w, r)
 
 		p.log.Info("Proxy Request",
