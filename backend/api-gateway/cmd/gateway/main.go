@@ -7,7 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/ykshvn/reactive-dsr/api-gateway/internal/app"
-	"github.com/ykshvn/reactive-dsr/api-gateway/internal/logger"
+	"github.com/ykshvn/reactive-dsr/shared/logger"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +19,7 @@ func main() {
 	defer l.Sync()
 
 	if err := realMain(l); err != nil {
-		l.Fatal("[ERROR]: ", zap.Error(err))
+		l.Error(err.Error())
 	}
 }
 

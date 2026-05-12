@@ -1,5 +1,5 @@
-// Package graph used for operations on graph
-package graph
+// Package types required for declaring shared types between services
+package types
 
 type Node struct {
 	ID        int     `json:"id"`
@@ -8,13 +8,13 @@ type Node struct {
 	Neighbors []int   `json:"neighbors"`
 }
 
+type Edge struct {
+	From int `json:"from"`
+	To   int `json:"to"`
+}
+
 type GraphResponse struct {
 	Nodes     []Node `json:"nodes"`
 	Edges     []Edge `json:"edges"`
 	NodeCount int    `json:"node_count"`
-}
-
-type Edge struct {
-	From int `json:"from"`
-	To   int `json:"to"`
 }

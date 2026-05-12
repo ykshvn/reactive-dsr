@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"slices"
 	"time"
+
+	"github.com/ykshvn/reactive-dsr/shared/types"
 )
 
 type Generator struct {
@@ -17,15 +19,15 @@ func NewGenerator() *Generator {
 	}
 }
 
-func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
+func (g *Generator) GenerateGraph(n int) (*types.GraphResponse, error) {
 	if n < 3 || n > 50 {
 		n = 20
 	}
 
 	maxDegree := max((n-1)/2, 3)
 
-	nodes := make([]Node, n)
-	edges := make([]Edge, 0)
+	nodes := make([]types.Node, n)
+	edges := make([]types.Edge, 0)
 
 	centerX := 500.0
 	centerY := 500.0
@@ -36,7 +38,7 @@ func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
 		x := centerX + radius*math.Cos(angle)
 		y := centerY + radius*math.Sin(angle)
 
-		nodes[i] = Node{
+		nodes[i] = types.Node{
 			ID: i,
 			X:  x,
 			Y:  y,
@@ -48,7 +50,7 @@ func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
 		nodes[i].Neighbors = append(nodes[i].Neighbors, next)
 		nodes[next].Neighbors = append(nodes[next].Neighbors, i)
 
-		edges = append(edges, Edge{From: i, To: next})
+		edges = append(edges, types.Edge{From: i, To: next})
 	}
 
 	extraEdges := n * 2
@@ -65,13 +67,13 @@ func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
 
 		nodes[u].Neighbors = append(nodes[u].Neighbors, v)
 		nodes[v].Neighbors = append(nodes[v].Neighbors, u)
-		edges = append(edges, Edge{From: u, To: v})
+		edges = append(edges, types.Edge{From: u, To: v})
 	}
 
 	for i := range nodes {
 		nodes[i].Neighbors = unique(nodes[i].Neighbors)
 	}
-	return &GraphResponse{
+	return &types.GraphResponse{
 		Nodes:     nodes,
 		Edges:     edges,
 		NodeCount: n,
