@@ -6,15 +6,14 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ykshvn/reactive-dsr/shared/events"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/handler"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/ws"
 	"go.uber.org/zap"
 )
 
 func Run(ctx context.Context, l *zap.Logger) error {
-	graphHandler := handler.NewGraphHandler()
 	wsHub := ws.NewHub(l)
+	graphHandler := handler.NewGraphHandler(wsHub)
 	wsHandler := handler.NewWSHandler(wsHub)
 
 	srv := &http.Server{
@@ -39,26 +38,26 @@ func Run(ctx context.Context, l *zap.Logger) error {
 
 	go wsHub.Run()
 
-	go func() {
-		step := 0
-		ticker := time.NewTicker(5 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-ticker.C:
-				step++
-				testEvent := events.NewStepEvent(events.EventSimulationStep, step, map[string]interface{}{
-					"message": "Test event from simulation service",
-					"step":    step,
-				})
-				wsHub.BroadcastEvent(testEvent)
-				l.Info("Broadcasted test event", zap.Int("step", step))
-			}
-		}
-	}()
+	// go func() {
+	// 	step := 0
+	// 	ticker := time.NewTicker(5 * time.Second)
+	// 	defer ticker.Stop()
+	//
+	// 	for {
+	// 		select {
+	// 		case <-ctx.Done():
+	// 			return
+	// 		case <-ticker.C:
+	// 			step++
+	// 			testEvent := events.NewStepEvent(events.EventSimulationStep, step, map[string]interface{}{
+	// 				"message": "Test event from simulation service",
+	// 				"step":    step,
+	// 			})
+	// 			wsHub.BroadcastEvent(testEvent)
+	// 			l.Info("Broadcasted test event", zap.Int("step", step))
+	// 		}
+	// 	}
+	// }()
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err

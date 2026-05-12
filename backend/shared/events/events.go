@@ -6,11 +6,13 @@ import "time"
 type EventType string
 
 const (
-	EventGraphGenerated EventType = "graph_generated"
-	EventRREQPropagated EventType = "rreq_propagated"
-	EventRREPReceived   EventType = "rrep_received"
-	EventRouteFound     EventType = "route_found"
-	EventSimulationStep EventType = "simulation_step"
+	EventGraphGenerated     EventType = "graph_generated"
+	EventRREQPropagated     EventType = "rreq_propagated"
+	EventRREPReceived       EventType = "rrep_received"
+	EventRouteFound         EventType = "route_found"
+	EventSimulationStep     EventType = "simulation_step"
+	EventRouteCacheUpdate   EventType = "route_cache_update"
+	EventSimulationFinished EventType = "simulation_finished"
 )
 
 type Event struct {
