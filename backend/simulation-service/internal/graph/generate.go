@@ -22,7 +22,7 @@ func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
 		n = 20
 	}
 
-	maxDegree := max(n/2, 3)
+	maxDegree := max((n-1)/2, 3)
 
 	nodes := make([]Node, n)
 	edges := make([]Edge, 0)
@@ -40,8 +40,6 @@ func (g *Generator) GenerateGraph(n int) (*GraphResponse, error) {
 			ID: i,
 			X:  x,
 			Y:  y,
-			// X:  g.rand.Float64()*800 + 100,
-			// Y:  g.rand.Float64()*800 + 100,
 		}
 	}
 
