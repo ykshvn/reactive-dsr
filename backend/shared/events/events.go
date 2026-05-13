@@ -22,6 +22,19 @@ type Event struct {
 	Timestamp int64       `json:"timestamp"`
 }
 
+type RREQPayload struct {
+	From       int   `json:"from"`
+	To         int   `json:"to"`
+	RouteSoFar []int `json:"route_so_far"`
+	RequestID  int   `json:"request_id"`
+}
+
+type RREPPayload struct {
+	From  int   `json:"from"`
+	To    int   `json:"to"`
+	Route []int `json:"route"`
+}
+
 func NewEvent(eventType EventType, payload interface{}) Event {
 	return Event{
 		Type:      eventType,
