@@ -34,7 +34,7 @@ func (g *Generator) GenerateGraph(n int) (*types.GraphResponse, error) {
 	radius := 500.0
 
 	for i := range n {
-		angle := 2 * math.Pi * float64(i) / float64(n)
+		angle := 2 * math.Pi * float64(n-i) / float64(n)
 		x := centerX + radius*math.Cos(angle)
 		y := centerY + radius*math.Sin(angle)
 

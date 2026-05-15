@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/ykshvn/reactive-dsr/shared/events"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/graph"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/ws"
 )
@@ -41,6 +42,19 @@ func (h *GraphHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	// NOTE: Test PREQ Message
+	if false {
+		h.hub.BroadcastEvent(events.NewEvent(events.EventGraphGenerated, resp))
+		testRREQ := events.RREQPayload{
+			From:       0,
+			To:         nodes - 1,
+			RouteSoFar: []int{0, 1, 3},
+			RequestID:  42,
+		}
+
+		h.hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, testRREQ))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

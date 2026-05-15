@@ -40,7 +40,6 @@ func (h *WSHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _, err := conn.ReadMessage()
 		if err != nil {
 			h.hub.Unregister <- client
-			h.hub.Log.Info("Client disconnected")
 			break
 		}
 	}

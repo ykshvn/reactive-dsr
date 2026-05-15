@@ -18,13 +18,12 @@ func Run(ctx context.Context, l *zap.Logger) error {
 
 	srv := &http.Server{
 		Addr:         ":6970",
-		Handler:      nil, // будем регистрировать вручную
+		Handler:      nil,
 		ReadTimeout:  15 * time.Second,
 		WriteTimeout: 15 * time.Second,
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// TODO: Process query params
 	http.HandleFunc("/graph/generate", graphHandler.Generate)
 	http.Handle("/ws/simulation", wsHandler)
 
@@ -37,27 +36,6 @@ func Run(ctx context.Context, l *zap.Logger) error {
 	l.Info("simulation service started on port 6970")
 
 	go wsHub.Run()
-
-	// go func() {
-	// 	step := 0
-	// 	ticker := time.NewTicker(5 * time.Second)
-	// 	defer ticker.Stop()
-	//
-	// 	for {
-	// 		select {
-	// 		case <-ctx.Done():
-	// 			return
-	// 		case <-ticker.C:
-	// 			step++
-	// 			testEvent := events.NewStepEvent(events.EventSimulationStep, step, map[string]interface{}{
-	// 				"message": "Test event from simulation service",
-	// 				"step":    step,
-	// 			})
-	// 			wsHub.BroadcastEvent(testEvent)
-	// 			l.Info("Broadcasted test event", zap.Int("step", step))
-	// 		}
-	// 	}
-	// }()
 
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err

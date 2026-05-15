@@ -54,7 +54,7 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
           },
         },
       ],
-      layout: { name: 'cose' }, // force-directed layout
+      layout: { name: 'cose' },
     });
   }
 
@@ -76,15 +76,13 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
 
     const elements: any[] = [];
 
-    // Узлы с фиксированными позициями
     graph.nodes.forEach((node) => {
       elements.push({
         data: { id: node.id.toString() },
-        position: { x: node.x, y: node.y }, // ← фиксированные координаты
+        position: { x: node.x, y: node.y },
       });
     });
 
-    // Рёбра
     graph.edges.forEach((edge) => {
       elements.push({
         data: {
@@ -97,7 +95,6 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
 
     this.cy.add(elements);
 
-    // Используем preset layout — уважает заданные позиции
     this.cy
       .layout({
         name: 'preset',
@@ -106,34 +103,6 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
       })
       .run();
   }
-
-  // private renderGraph(graph: GraphResponse) {
-  //   this.cy.elements().remove(); // очищаем предыдущий граф
-  //
-  //   const elements: any[] = [];
-  //
-  //   // Добавляем узлы
-  //   graph.nodes.forEach((node) => {
-  //     elements.push({
-  //       data: { id: node.id.toString() },
-  //       position: { x: node.x, y: node.y },
-  //     });
-  //   });
-  //
-  //   // Добавляем рёбра
-  //   graph.edges.forEach((edge) => {
-  //     elements.push({
-  //       data: {
-  //         id: `${edge.from}-${edge.to}`,
-  //         source: edge.from.toString(),
-  //         target: edge.to.toString(),
-  //       },
-  //     });
-  //   });
-  //
-  //   this.cy.add(elements);
-  //   this.cy.layout({ name: 'cose' }).run();
-  // }
 
   ngOnDestroy() {
     if (this.cy) this.cy.destroy();
