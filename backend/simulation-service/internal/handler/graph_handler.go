@@ -8,18 +8,21 @@ import (
 
 	"github.com/ykshvn/reactive-dsr/shared/events"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/graph"
+	"github.com/ykshvn/reactive-dsr/simulation-service/internal/simulation"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/ws"
 )
 
 type GraphHandler struct {
 	generator *graph.Generator
 	hub       *ws.Hub
+	engine    *simulation.Engine
 }
 
-func NewGraphHandler(hub *ws.Hub) *GraphHandler {
+func NewGraphHandler(hub *ws.Hub, engine *simulation.Engine) *GraphHandler {
 	return &GraphHandler{
 		generator: graph.NewGenerator(),
 		hub:       hub,
+		engine:    engine,
 	}
 }
 
@@ -44,18 +47,9 @@ func (h *GraphHandler) Generate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// NOTE: Test PREQ Message
-	if false {
-		h.hub.BroadcastEvent(events.NewEvent(events.EventGraphGenerated, resp))
-		testRREQ := events.RREQPayload{
-			From:       0,
-			To:         nodes - 1,
-			RouteSoFar: []int{0, 1, 3},
-			RequestID:  42,
-		}
+	h.engine.InitGraph(resp.Nodes)
 
-		h.hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, testRREQ))
-	}
+	h.hub.BroadcastEvent(events.NewEvent(events.EventGraphGenerated, resp))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)

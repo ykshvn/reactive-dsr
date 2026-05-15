@@ -7,7 +7,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Node struct {
+type NodeActor struct {
 	ID           int
 	Neighbors    []int
 	RouteCache   map[int][]int
@@ -18,8 +18,8 @@ type Node struct {
 	stop         chan struct{}
 }
 
-func NewNode(id int, neighbors []int, hub *ws.Hub, l *zap.Logger) *Node {
-	return &Node{
+func NewNodeActor(id int, neighbors []int, hub *ws.Hub, l *zap.Logger) *NodeActor {
+	return &NodeActor{
 		ID:           id,
 		Neighbors:    neighbors,
 		RouteCache:   make(map[int][]int),
@@ -31,47 +31,47 @@ func NewNode(id int, neighbors []int, hub *ws.Hub, l *zap.Logger) *Node {
 	}
 }
 
-func (n *Node) Start() {
-	go n.run()
+func (a *NodeActor) Start() {
+	go a.run()
 }
 
-func (n *Node) Stop() {
-	close(n.stop)
+func (a *NodeActor) Stop() {
+	close(a.stop)
 }
 
-func (n *Node) run() {
+func (a *NodeActor) run() {
 	for {
 		select {
-		case msg := <-n.Inbox:
-			n.processMessage(msg)
-		case <-n.stop:
+		case msg := <-a.Inbox:
+			a.processMessage(msg)
+		case <-a.stop:
 			return
 		}
 	}
 }
 
-func (n *Node) processMessage(msg domain.Message) {
+func (a *NodeActor) processMessage(msg domain.Message) {
 	switch msg.Type {
 	case domain.MessageRREQ:
-		n.handleRREQ(msg.RREQ)
+		a.handleRREQ(msg.RREQ)
 	case domain.MessageRREP:
-		n.handleRREP(msg.RREP)
+		a.handleRREP(msg.RREP)
 	}
 }
 
-func (n *Node) handleRREQ(rreq *domain.RREQ) {
-	n.log.Info(
+func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
+	a.log.Info(
 		"got RREQ",
-		zap.Int("node ID", n.ID),
+		zap.Int("node ID", a.ID),
 		zap.Int("from", rreq.Source),
 		zap.Int("to", rreq.Destination),
 	)
 }
 
-func (n *Node) handleRREP(rrep *domain.RREP) {
-	n.log.Info(
+func (a *NodeActor) handleRREP(rrep *domain.RREP) {
+	a.log.Info(
 		"got RREP",
-		zap.Int("node ID", n.ID),
+		zap.Int("node ID", a.ID),
 		zap.Any("route", rrep.Route),
 	)
 }

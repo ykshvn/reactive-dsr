@@ -2,6 +2,7 @@
 package simulation
 
 import (
+	"github.com/ykshvn/reactive-dsr/shared/types"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/domain"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/node"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/ws"
@@ -9,7 +10,7 @@ import (
 )
 
 type Engine struct {
-	Nodes map[int]*node.Node
+	Nodes map[int]*node.NodeActor
 	Hub   *ws.Hub
 	log   *zap.Logger
 	step  int
@@ -17,16 +18,16 @@ type Engine struct {
 
 func NewEngine(hub *ws.Hub, l *zap.Logger) *Engine {
 	return &Engine{
-		Nodes: make(map[int]*node.Node),
+		Nodes: make(map[int]*node.NodeActor),
 		Hub:   hub,
 		log:   l,
 		step:  0,
 	}
 }
 
-func (e *Engine) InitGraph(nodes []node.Node) {
+func (e *Engine) InitGraph(nodes []types.Node) {
 	for _, nd := range nodes {
-		nodeActor := node.NewNode(nd.ID, nd.Neighbors, e.Hub, e.log)
+		nodeActor := node.NewNodeActor(nd.ID, nd.Neighbors, e.Hub, e.log)
 		nodeActor.Start()
 		e.Nodes[nd.ID] = nodeActor
 	}

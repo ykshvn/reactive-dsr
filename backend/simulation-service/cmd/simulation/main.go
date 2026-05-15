@@ -23,10 +23,11 @@ func main() {
 	}
 }
 
-// TODO: Refactor this to different package
 func realMain(l *zap.Logger) error {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	return app.Run(ctx, l)
+	app := app.NewApp(l)
+
+	return app.Run(ctx)
 }
