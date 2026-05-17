@@ -40,7 +40,7 @@ func NewRouter(cfg *config.Config, l *zap.Logger) (*chi.Mux, error) {
 	})
 
 	// WebSocket
-	ws := proxy.NewWSProxy(l)
+	ws := proxy.NewWSProxy(cfg.Services.WsSimulationURL, l)
 	r.Get("/ws/simulation", ws.ServeHTTP)
 
 	return r, nil

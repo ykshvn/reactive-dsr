@@ -9,6 +9,7 @@ server:
 
 services:
   simulation_url: "http://localhost:6970"
+  ws_simulation_url: "ws://localhost:6970/ws/simulation"
 
 rate_limit:
   requests_per_second: 100

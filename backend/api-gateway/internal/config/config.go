@@ -26,6 +26,7 @@ type ServerConfig struct {
 
 type ServicesConfig struct {
 	SimulationServiceURL string `mapstructure:"simulation_url"`
+	WsSimulationURL      string `mapstructure:"ws_simulation_url"`
 }
 
 type RateLimitConfig struct {

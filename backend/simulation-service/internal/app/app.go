@@ -18,12 +18,14 @@ type App struct {
 	wsHub        *ws.Hub
 	graphHandler *handler.GraphHandler
 	wsHandler    *handler.WSHandler
+	simHandler   *handler.SimulationHandler
 }
 
 func NewApp(l *zap.Logger) *App {
 	hub := ws.NewHub(l)
 	engine := simulation.NewEngine(hub, l)
 	wsHandler := handler.NewWSHandler(hub)
+	simHandler := handler.NewSimulationHandler(engine)
 
 	return &App{
 		log:          l,
@@ -31,6 +33,7 @@ func NewApp(l *zap.Logger) *App {
 		wsHub:        hub,
 		graphHandler: handler.NewGraphHandler(hub, engine),
 		wsHandler:    wsHandler,
+		simHandler:   simHandler,
 	}
 }
 
@@ -44,6 +47,7 @@ func (a *App) Run(ctx context.Context) error {
 	}
 
 	http.HandleFunc("/graph/generate", a.graphHandler.Generate)
+	http.HandleFunc("/simulation/start", a.simHandler.StartRouteDiscovery)
 	http.Handle("/ws/simulation", a.wsHandler)
 
 	go func() {
@@ -61,17 +65,3 @@ func (a *App) Run(ctx context.Context) error {
 
 	return nil
 }
-
-// func Run(ctx context.Context, l *zap.Logger) error {
-// 	wsHub := ws.NewHub(l)
-// 	graphHandler := handler.NewGraphHandler(wsHub)
-// 	wsHandler := handler.NewWSHandler(wsHub)
-//
-//
-// 	http.HandleFunc("/graph/generate", graphHandler.Generate)
-// 	http.Handle("/ws/simulation", wsHandler)
-//
-//
-//
-//
-// }

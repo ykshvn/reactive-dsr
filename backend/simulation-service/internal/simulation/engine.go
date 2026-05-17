@@ -2,6 +2,7 @@
 package simulation
 
 import (
+	"github.com/ykshvn/reactive-dsr/shared/events"
 	"github.com/ykshvn/reactive-dsr/shared/types"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/domain"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/node"
@@ -27,12 +28,20 @@ func NewEngine(hub *ws.Hub, l *zap.Logger) *Engine {
 
 func (e *Engine) InitGraph(nodes []types.Node) {
 	for _, nd := range nodes {
-		nodeActor := node.NewNodeActor(nd.ID, nd.Neighbors, e.Hub, e.log)
+		nodeActor := node.NewNodeActor(nd.ID, nd.Neighbors, e.Hub, e.SendMessage, e.log)
 		nodeActor.Start()
 		e.Nodes[nd.ID] = nodeActor
 	}
 
 	e.log.Info("Simulation engine initialized", zap.Int("nodes", len(nodes)))
+}
+
+func (e *Engine) SendMessage(msg domain.Message) {
+	if targetNode, exists := e.Nodes[msg.To]; exists {
+		targetNode.Inbox <- msg
+	} else {
+		e.log.Warn("Target node not found", zap.Int("target", msg.To))
+	}
 }
 
 func (e *Engine) StartRouteDiscovery(source, destination int) {
@@ -49,13 +58,20 @@ func (e *Engine) StartRouteDiscovery(source, destination int) {
 		RouteSoFar:  []int{source},
 	}
 
-	if node, ok := e.Nodes[source]; ok {
-		node.Inbox <- domain.Message{
+	if sourceNode, exists := e.Nodes[source]; exists {
+		sourceNode.Inbox <- domain.Message{
 			Type: domain.MessageRREQ,
 			From: source,
 			To:   destination,
 			RREQ: rreq,
 		}
+
+		e.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
+			From:       source,
+			To:         destination,
+			RouteSoFar: rreq.RouteSoFar,
+			RequestID:  rreq.RequestID,
+		}))
 	}
 }
 
