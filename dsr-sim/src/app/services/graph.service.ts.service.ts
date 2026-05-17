@@ -1,4 +1,4 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 
@@ -31,5 +31,12 @@ export class GraphService {
     return this.http.get<GraphResponse>(
       `${this.baseUrl}/graph/generate?nodes=${nodesCount}`,
     );
+  }
+
+  startRouteDiscovery(src: number, dst: number): Observable<any> {
+    const params = new HttpParams()
+      .set('src', src.toString())
+      .set('dst', dst.toString());
+    return this.http.get(`${this.baseUrl}/simulation/start`, { params });
   }
 }

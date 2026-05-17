@@ -22,6 +22,12 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
   private cy: any;
   graphData: GraphResponse | null = null;
 
+  nodesCount = 20;
+  sourceId = 0;
+  destId = 10;
+
+  events: any[] = [];
+
   constructor(private graphService: GraphService) {}
 
   ngAfterViewInit(): void {
@@ -55,6 +61,7 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
         },
       ],
       layout: { name: 'cose' },
+      userZoomingEnabled: true,
     });
   }
 
@@ -69,6 +76,21 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
       },
     });
   }
+
+  startRouteDiscovery() {
+    if (!this.graphData) return;
+
+    this.graphService
+      .startRouteDiscovery(this.sourceId, this.destId)
+      .subscribe({
+        next: () =>
+          console.log(
+            `Поиск маршрута запущен: ${this.sourceId} → ${this.destId}`,
+          ),
+        error: (err) => console.error(err),
+      });
+  }
+
   private renderGraph(graph: GraphResponse) {
     if (!this.cy) return;
 
