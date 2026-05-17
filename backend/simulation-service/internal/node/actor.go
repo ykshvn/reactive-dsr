@@ -58,6 +58,17 @@ func (a *NodeActor) run() {
 	}
 }
 
+func (a *NodeActor) ProcessPendingMessages() {
+	for {
+		select {
+		case msg := <-a.Inbox:
+			a.processMessage(msg)
+		default:
+			return
+		}
+	}
+}
+
 func (a *NodeActor) processMessage(msg domain.Message) {
 	switch msg.Type {
 	case domain.MessageRREQ:
@@ -151,9 +162,31 @@ func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
 }
 
 func (a *NodeActor) handleRREP(rrep *domain.RREP) {
-	a.log.Info(
-		"got RREP",
-		zap.Int("node ID", a.ID),
-		zap.Any("route", rrep.Route),
+	a.log.Info("RREP received",
+		zap.Int("node", a.ID),
+		zap.Int("destination", rrep.Destination),
+		zap.Any("full_route", rrep.Route),
 	)
+
+	if a.ID != rrep.Source && len(rrep.Route) > 1 {
+		nextHop := rrep.Route[1]
+
+		a.sendMessage(domain.Message{
+			Type: domain.MessageRREP,
+			From: a.ID,
+			To:   nextHop,
+			RREP: rrep,
+		})
+
+		a.log.Info("Forwarding RREP",
+			zap.Int("from", a.ID),
+			zap.Int("to", nextHop),
+		)
+	}
+
+	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREPReceived, events.RREPPayload{
+		From:  a.ID,
+		To:    rrep.Source,
+		Route: rrep.Route,
+	}))
 }

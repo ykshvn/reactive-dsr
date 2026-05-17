@@ -45,3 +45,14 @@ func (h *SimulationHandler) StartRouteDiscovery(w http.ResponseWriter, r *http.R
 		"dest":    dst,
 	})
 }
+
+func (h *SimulationHandler) Step(w http.ResponseWriter, r *http.Request) {
+	h.engine.Step()
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":  "ok",
+		"step":    h.engine.GetCurrentStep(),
+		"message": "Simulation step executed",
+	})
+}

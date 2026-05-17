@@ -48,6 +48,8 @@ func (a *App) Run(ctx context.Context) error {
 
 	http.HandleFunc("/graph/generate", a.graphHandler.Generate)
 	http.HandleFunc("/simulation/start", a.simHandler.StartRouteDiscovery)
+	http.HandleFunc("/simulation/step", a.simHandler.Step)
+
 	http.Handle("/ws/simulation", a.wsHandler)
 
 	go func() {
@@ -56,9 +58,10 @@ func (a *App) Run(ctx context.Context) error {
 		srv.Shutdown(ctx)
 	}()
 
+	go a.wsHub.Run()
+
 	a.log.Info("simulation service started on port 6970")
 
-	go a.wsHub.Run()
 	if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		return err
 	}

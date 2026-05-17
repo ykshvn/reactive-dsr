@@ -36,18 +36,34 @@ func (e *Engine) InitGraph(nodes []types.Node) {
 	e.log.Info("Simulation engine initialized", zap.Int("nodes", len(nodes)))
 }
 
+func (e *Engine) Step() {
+	e.step++
+	e.log.Info("Simulation Step", zap.Int("step", e.step))
+
+	e.Hub.BroadcastEvent(events.NewStepEvent(events.EventSimulationStep, e.step, nil))
+
+	for _, actor := range e.Nodes {
+		actor.ProcessPendingMessages()
+	}
+}
+
 func (e *Engine) SendMessage(msg domain.Message) {
 	if targetNode, exists := e.Nodes[msg.To]; exists {
-		targetNode.Inbox <- msg
+		select {
+		case targetNode.Inbox <- msg:
+		default:
+			e.log.Warn("Inbox full", zap.Int("node", msg.To))
+
+		}
 	} else {
 		e.log.Warn("Target node not found", zap.Int("target", msg.To))
 	}
 }
 
 func (e *Engine) StartRouteDiscovery(source, destination int) {
-	e.step++
+	e.step = 0
+
 	e.log.Info("Starting route discovery",
-		zap.Int("step", e.step),
 		zap.Int("source", source),
 		zap.Int("dest", destination))
 
@@ -58,21 +74,23 @@ func (e *Engine) StartRouteDiscovery(source, destination int) {
 		RouteSoFar:  []int{source},
 	}
 
-	if sourceNode, exists := e.Nodes[source]; exists {
-		sourceNode.Inbox <- domain.Message{
-			Type: domain.MessageRREQ,
-			From: source,
-			To:   destination,
-			RREQ: rreq,
-		}
+	e.SendMessage(domain.Message{
+		Type: domain.MessageRREQ,
+		From: source,
+		To:   destination,
+		RREQ: rreq,
+	})
 
-		e.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
-			From:       source,
-			To:         destination,
-			RouteSoFar: rreq.RouteSoFar,
-			RequestID:  rreq.RequestID,
-		}))
-	}
+	e.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
+		From:       source,
+		To:         destination,
+		RouteSoFar: rreq.RouteSoFar,
+		RequestID:  rreq.RequestID,
+	}))
+}
+
+func (e *Engine) GetCurrentStep() int {
+	return e.step
 }
 
 func (e *Engine) Stop() {
