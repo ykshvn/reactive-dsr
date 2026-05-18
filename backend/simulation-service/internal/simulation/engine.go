@@ -60,30 +60,35 @@ func (e *Engine) SendMessage(msg domain.Message) {
 	}
 }
 
-func (e *Engine) StartRouteDiscovery(source, destination int) {
-	e.step = 0
-
-	e.log.Info("Starting route discovery",
-		zap.Int("source", source),
-		zap.Int("dest", destination))
+func (e *Engine) StartRouteDiscovery(src, dst int) {
+	if src == dst {
+		e.log.Warn("Source and destination are the same")
+		return
+	}
+	e.step++
 
 	rreq := &domain.RREQ{
 		RequestID:   e.step,
-		Source:      source,
-		Destination: destination,
-		RouteSoFar:  []int{source},
+		Source:      src,
+		Destination: dst,
+		RouteSoFar:  make([]int, 0),
 	}
+
+	e.log.Info("Route discovery started",
+		zap.Int("step", e.step),
+		zap.Int("source", src),
+		zap.Int("dest", dst))
 
 	e.SendMessage(domain.Message{
 		Type: domain.MessageRREQ,
-		From: source,
-		To:   destination,
+		From: src,
+		To:   src,
 		RREQ: rreq,
 	})
 
 	e.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
-		From:       source,
-		To:         destination,
+		From:       src,
+		To:         dst,
 		RouteSoFar: rreq.RouteSoFar,
 		RequestID:  rreq.RequestID,
 	}))

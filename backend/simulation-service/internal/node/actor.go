@@ -62,6 +62,7 @@ func (a *NodeActor) ProcessPendingMessages() {
 	for {
 		select {
 		case msg := <-a.Inbox:
+			fmt.Println("ProcessPendingMessages")
 			a.processMessage(msg)
 		default:
 			return
@@ -79,29 +80,22 @@ func (a *NodeActor) processMessage(msg domain.Message) {
 }
 
 func (a *NodeActor) sendRREP(rreq *domain.RREQ) {
-	route := make([]int, len(rreq.RouteSoFar))
-	copy(route, rreq.RouteSoFar)
-
-	for i, j := 0, len(route)-1; i < j; i, j = i+1, j-1 {
-		route[i], route[j] = route[j], route[i]
-	}
-
 	rrep := &domain.RREP{
 		RequestID:   rreq.RequestID,
 		Source:      rreq.Source,
 		Destination: rreq.Destination,
-		Route:       route,
+		Route:       rreq.RouteSoFar,
 	}
 
 	a.log.Info(
 		"Route found! Sending RREP",
 		zap.Int("node", a.ID),
 		zap.Int("to", rreq.Source),
-		zap.Any("route", route),
+		zap.Any("route", rrep.Route),
 	)
 
-	if len(route) > 1 {
-		nextHop := route[1]
+	if len(rrep.Route) > 1 {
+		nextHop := rrep.Route[len(rrep.Route)-2]
 
 		a.sendMessage(
 			domain.Message{
@@ -111,12 +105,14 @@ func (a *NodeActor) sendRREP(rreq *domain.RREQ) {
 				RREP: rrep,
 			},
 		)
+	} else {
+		a.log.Warn("Route too short", zap.Any("route", rrep.Route))
 	}
 
 	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREPReceived, events.RREPPayload{
 		From:  a.ID,
 		To:    rreq.Source,
-		Route: route,
+		Route: rrep.Route,
 	}))
 }
 
@@ -128,15 +124,14 @@ func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
 	}
 	a.SeenRequests[requestKey] = true
 
+	rreq.RouteSoFar = append(rreq.RouteSoFar, a.ID)
+
 	if a.ID == rreq.Destination {
 		a.sendRREP(rreq)
 	}
 
-	newRoute := append([]int{}, rreq.RouteSoFar...)
-	newRoute = append(newRoute, a.ID)
-
 	for _, neighbor := range a.Neighbors {
-		if neighbor == rreq.RouteSoFar[len(rreq.RouteSoFar)-1] {
+		if len(rreq.RouteSoFar) > 0 && neighbor == rreq.RouteSoFar[len(rreq.RouteSoFar)-1] {
 			continue
 		}
 
@@ -148,7 +143,7 @@ func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
 				RequestID:   rreq.RequestID,
 				Source:      rreq.Source,
 				Destination: rreq.Destination,
-				RouteSoFar:  newRoute,
+				RouteSoFar:  rreq.RouteSoFar,
 			},
 		})
 	}
@@ -156,7 +151,7 @@ func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
 	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
 		From:       a.ID,
 		To:         rreq.Destination,
-		RouteSoFar: newRoute,
+		RouteSoFar: rreq.RouteSoFar,
 		RequestID:  rreq.RequestID,
 	}))
 }
@@ -169,7 +164,8 @@ func (a *NodeActor) handleRREP(rrep *domain.RREP) {
 	)
 
 	if a.ID != rrep.Source && len(rrep.Route) > 1 {
-		nextHop := rrep.Route[1]
+		myself := findMyself(rrep.Route, a.ID)
+		nextHop := rrep.Route[myself-1]
 
 		a.sendMessage(domain.Message{
 			Type: domain.MessageRREP,
@@ -189,4 +185,13 @@ func (a *NodeActor) handleRREP(rrep *domain.RREP) {
 		To:    rrep.Source,
 		Route: rrep.Route,
 	}))
+}
+
+func findMyself(slice []int, target int) int {
+	for i, v := range slice {
+		if v == target {
+			return i
+		}
+	}
+	return -1
 }

@@ -1,10 +1,53 @@
 <div class="graph-container">
   <div class="controls">
-    <button (click)="loadGraph(15)">15 nodes</button>
-    <button (click)="loadGraph(25)">25 nodes</button>
-    <button (click)="loadGraph(35)">35 nodes</button>
-    <button (click)="startRouteDiscovery()">Start route discovery</button>
+    <div class="controls-container">
+      <!-- Graph Generation -->
+      <div class="section">
+        <h3>Graph Generation</h3>
+        <mat-slider min="5" max="50" step="1" discrete>
+          <input
+            matSliderThumb
+            [(ngModel)]="nodesCount"
+            [value]="nodesCount"
+            (dragEnd)="onSliderRelease($event)"
+          />
+        </mat-slider>
+      </div>
+
+      <!-- Route Discovery -->
+      <div class="section">
+        <h3>Route Discovery</h3>
+        <mat-form-field class="example-full-width">
+          <input matInput [(ngModel)]="sourceId" placeholder="Source:" />
+        </mat-form-field>
+        <mat-form-field class="example-full-width">
+          <input matInput [(ngModel)]="destId" placeholder="Destination:" />
+        </mat-form-field>
+        <div>
+          <button
+            mat-button
+            (click)="startRouteDiscovery()"
+            [disabled]="sourceId === destId"
+          >
+            Start Route Discovery
+          </button>
+          <button mat-button (click)="nextStep()">Next Step</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div #cy class="cy-container"></div>
+
+  <div class="events-panel">
+    <h3>Events Log</h3>
+    @for (e of events; track e.name) {
+      <div class="events">
+        <strong>[{{ e.type }}]</strong>
+        @if (e.payload) {
+          <span>e.payload | json</span>
+        }
+      </div>
+    }
+  </div>
 </div>

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strconv"
 
@@ -54,5 +55,25 @@ func (h *SimulationHandler) Step(w http.ResponseWriter, r *http.Request) {
 		"status":  "ok",
 		"step":    h.engine.GetCurrentStep(),
 		"message": "Simulation step executed",
+	})
+}
+
+func (h *SimulationHandler) Run(w http.ResponseWriter, r *http.Request) {
+	src := 0
+	dst := 0
+
+	if s := r.URL.Query().Get("src"); s != "" {
+		src, _ = strconv.Atoi(s)
+	}
+	if d := r.URL.Query().Get("dst"); d != "" {
+		dst, _ = strconv.Atoi(d)
+	}
+
+	h.engine.StartRouteDiscovery(src, dst)
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]string{
+		"status":  "ok",
+		"message": fmt.Sprintf("Route discovery started from %d to %d", src, dst),
 	})
 }

@@ -39,4 +39,16 @@ export class GraphService {
       .set('dst', dst.toString());
     return this.http.get(`${this.baseUrl}/simulation/start`, { params });
   }
+
+  nextStep(): Observable<any> {
+    return this.http.get(`${this.baseUrl}/simulation/step`);
+  }
+
+  runSimulation(source: number, destination: number): Observable<any> {
+    const params = new HttpParams()
+      .set('src', source.toString())
+      .set('dst', destination.toString());
+
+    return this.http.get(`${this.baseUrl}/simulation/run`, { params });
+  }
 }
