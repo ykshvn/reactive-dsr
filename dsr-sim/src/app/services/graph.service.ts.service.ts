@@ -20,6 +20,21 @@ export interface GraphResponse {
   node_count: number;
 }
 
+export interface StepResponse {
+  status: string;
+  step: number;
+  queueLength: number;
+  event?: Event;
+  message?: string;
+}
+
+export interface Event {
+  type: string;
+  step: number;
+  payload: any;
+  timestamp: number;
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -40,8 +55,8 @@ export class GraphService {
     return this.http.get(`${this.baseUrl}/simulation/start`, { params });
   }
 
-  nextStep(): Observable<any> {
-    return this.http.get(`${this.baseUrl}/simulation/step`);
+  nextStep(): Observable<StepResponse> {
+    return this.http.get<StepResponse>(`${this.baseUrl}/simulation/step`);
   }
 
   runSimulation(source: number, destination: number): Observable<any> {

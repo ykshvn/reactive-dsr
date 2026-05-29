@@ -17,10 +17,10 @@
       <!-- Route Discovery -->
       <div class="section">
         <h3>Route Discovery</h3>
-        <mat-form-field class="example-full-width">
+        <mat-form-field class="form-field">
           <input matInput [(ngModel)]="sourceId" placeholder="Source:" />
         </mat-form-field>
-        <mat-form-field class="example-full-width">
+        <mat-form-field class="form-field">
           <input matInput [(ngModel)]="destId" placeholder="Destination:" />
         </mat-form-field>
         <div>
@@ -32,22 +32,28 @@
             Start Route Discovery
           </button>
           <button mat-button (click)="nextStep()">Next Step</button>
+          <button mat-button (click)="resetVisualization()">Reset</button>
         </div>
       </div>
     </div>
   </div>
 
-  <div #cy class="cy-container"></div>
+  <div class="main-content">
+    <div #cy class="cy-container"></div>
 
-  <div class="events-panel">
-    <h3>Events Log</h3>
-    @for (e of events; track e.name) {
-      <div class="events">
-        <strong>[{{ e.type }}]</strong>
-        @if (e.payload) {
-          <span>e.payload | json</span>
-        }
-      </div>
-    }
+    <div class="events-panel">
+      <h3>Events Log</h3>
+      @for (e of events; track e.step) {
+        <div class="events">
+          <strong>[{{ e.event.type }}]</strong>
+          @if (e.event.payload) {
+            <span
+              >Node: {{ e.event.payload.from }} | Route:
+              {{ e.event.payload.route_so_far || e.event.payload.route }}</span
+            >
+          }
+        </div>
+      }
+    </div>
   </div>
 </div>

@@ -1,14 +1,12 @@
 // Package queue is required for step-by-step simulation
 package queue
 
-type Queue struct{}
+import (
+	"github.com/ykshvn/reactive-dsr/simulation-service/internal/domain"
+)
 
-func NewQueue() *Queue {
-	return &Queue{}
-}
-
-func (q *Queue) Push() {
-}
-
-func (q *Queue) Pop() {
+type QueuedMessage struct {
+	Msg       domain.Message
+	Timestamp int
+	Meta      map[string]interface{}
 }

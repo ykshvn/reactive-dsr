@@ -26,24 +26,20 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
 
   private cy: any;
   graphData: GraphResponse | null = null;
-  private ws!: WebSocket;
 
-  thumbLabel = true;
-
-  nodesCount = 20;
+  nodesCount = 10;
   sourceId = 0;
-  destId = 10;
+  destId = 5;
 
   events: any[] = [];
-
   isRunning: boolean = false;
 
   constructor(private graphService: GraphService) {}
 
   ngAfterViewInit(): void {
     this.initCytoscape();
-    this.initWebSocket();
-    this.loadGraph();
+    this.loadGraph(this.nodesCount);
+    this.resetVisualization();
   }
 
   private initCytoscape() {
@@ -78,57 +74,88 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  private initWebSocket() {
-    this.ws = new WebSocket('ws://localhost:6969/ws/simulation');
-
-    this.ws.onopen = () => console.log('WebSocket connected');
-
-    this.ws.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      this.events.unshift(data);
-
-      if (data.type === 'rreq_propagated' && data.payload) {
-        const p = data.payload;
-        this.highlightNode(p.from, '#ffeb3b', 600);
-        if (p.route_so_far && p.route_so_far.length > 1) {
-          this.highlightEdge(
-            p.route_so_far[p.route_so_far.length - 2],
-            p.from,
-            '#4ade80',
-            800,
-          );
-        }
-      }
-
-      if (data.type === 'rrep_received' && data.payload) {
-        const p = data.payload;
-        this.highlightNode(p.from, '#4ade80', 800);
-        if (p.route && p.route.length > 1) {
-          this.highlightEdge(p.from, p.route[1], '#22c55e', 1200);
-        }
-      }
-    };
-
-    this.ws.onerror = (e) => console.error('WebSocket error', e);
-  }
-
   loadGraph(nodesCount: number = 20) {
+    this.resetVisualization();
     this.graphService.generateGraph(nodesCount).subscribe({
       next: (data) => {
         this.graphData = data;
         this.renderGraph(data);
       },
-      error: (err) => {
-        console.error('Failed to load graph', err);
-      },
+      error: (err) => console.error('Failed to load graph', err),
     });
+  }
+
+  nextStep() {
+    this.graphService.nextStep().subscribe({
+      next: (response) => {
+        if (response.event) {
+          this.handleSimulationEvent(response);
+        }
+      },
+      error: (err) => console.error(err),
+    });
+  }
+
+  private handleSimulationEvent(responseEvent: any) {
+    this.events.unshift(responseEvent);
+    const p = responseEvent.event.payload || {};
+    const eventType = responseEvent.event.type.toLowerCase();
+
+    const route = p.route_so_far || p.route || [];
+    const currentNode = route.length > 0 ? route[route.length - 1] : p.from;
+    const prevNode = route.length > 1 ? route[route.length - 2] : null;
+
+    switch (eventType) {
+      case 'rreq_processed':
+      case 'rreq_propagated':
+        this.highlightNode(currentNode, '#ffeb3b', 1000);
+        if (prevNode !== null) {
+          this.highlightEdge(prevNode, currentNode, '#60a5fa');
+        }
+        break;
+
+      case 'rreq_dropped':
+        const droppedNode =
+          p.from !== undefined
+            ? p.from
+            : route.length > 0
+              ? route[route.length - 1]
+              : null;
+        this.highlightNode(droppedNode, '#ef4444');
+        this.highlightEdge(droppedNode, route[route.length - 2], '#ef4444');
+        break;
+
+      case 'rrep_generated':
+        this.highlightPath(route, '#22c55e', 1500);
+        break;
+
+      case 'rrep_forwarded':
+      case 'rrep_received':
+        this.highlightNode(currentNode, '#4ade80', 1200);
+        if (prevNode !== null) {
+          this.highlightEdge(currentNode, prevNode, '#22c55e');
+        }
+        break;
+
+      case 'route_discovered':
+        this.highlightPath(route, '#eab308', 200000);
+        break;
+    }
+  }
+
+  private highlightPath(route: number[], color: string, time: number) {
+    for (let i = 0; i < route.length - 1; i++) {
+      this.highlightEdge(route[i], route[i + 1], color);
+    }
+    for (let i = 0; i < route.length; i++) {
+      this.highlightNode(route[i], color, time);
+    }
   }
 
   startRouteDiscovery() {
     if (!this.graphData) return;
-
     this.events = [];
-
+    this.resetGraphColors();
     this.isRunning = true;
 
     this.graphService
@@ -136,24 +163,26 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
       .subscribe({
         next: () =>
           console.log(
-            `Route discovery started: ${this.sourceId} → ${this.destId}`,
+            `Route discovery queued: ${this.sourceId} → ${this.destId}`,
           ),
         error: (err) => console.error(err),
       });
   }
 
-  nextStep() {
-    this.graphService.nextStep().subscribe({
-      next: () => console.log('Step executed'),
-      error: (err) => console.error(err),
-    });
+  resetVisualization() {
+    this.events = [];
+    this.resetGraphColors();
+  }
+
+  private resetGraphColors() {
+    if (!this.cy) return;
+    this.cy.nodes().style('background-color', '#4a90e2');
+    this.cy.edges().style({ 'line-color': '#888', width: 2 });
   }
 
   private renderGraph(graph: GraphResponse) {
     if (!this.cy) return;
-
     this.cy.elements().remove();
-
     const elements: any[] = [];
 
     graph.nodes.forEach((node) => {
@@ -174,14 +203,7 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
     });
 
     this.cy.add(elements);
-
-    this.cy
-      .layout({
-        name: 'preset',
-        animate: true,
-        duration: 500,
-      })
-      .run();
+    this.cy.layout({ name: 'preset', animate: true, duration: 500 }).run();
   }
 
   onSliderRelease(event: MatSliderDragEvent) {
@@ -193,34 +215,27 @@ export class GraphVisualizationComponent implements AfterViewInit, OnDestroy {
     color: string = '#ffeb3b',
     duration: number = 800,
   ) {
+    if (nodeId === undefined || nodeId === null) return;
     const node = this.cy.getElementById(nodeId.toString());
-    if (node) {
+    if (node && node.length > 0) {
       const originalColor = node.style('background-color');
       node.style('background-color', color);
-      setTimeout(() => {
-        node.style('background-color', originalColor);
-      }, duration);
+      setTimeout(() => node.style('background-color', originalColor), duration);
     }
   }
 
-  highlightEdge(
-    from: number,
-    to: number,
-    color: string = '#4ade80',
-    duration: number = 1000,
-  ) {
-    const edge = this.cy.getElementById(`e${from}-${to}`);
-    if (edge) {
-      const originalColor = edge.style('line-color');
+  highlightEdge(from: number, to: number, color: string = '#4ade80') {
+    let edge = this.cy.getElementById(`e${from}-${to}`);
+    if (!edge || edge.length === 0) {
+      edge = this.cy.getElementById(`e${to}-${from}`);
+    }
+
+    if (edge && edge.length > 0) {
       edge.style({ 'line-color': color, width: 4 });
-      setTimeout(() => {
-        edge.style({ 'line-color': originalColor, width: 2.5 });
-      }, duration);
     }
   }
 
   ngOnDestroy() {
-    if (this.ws) this.ws.close();
     if (this.cy) this.cy.destroy();
   }
 }

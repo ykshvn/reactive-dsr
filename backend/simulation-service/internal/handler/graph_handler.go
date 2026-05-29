@@ -54,13 +54,3 @@ func (h *GraphHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 }
-
-func (h *GraphHandler) Step(w http.ResponseWriter, r *http.Request) {
-	h.engine.Step()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status": "ok",
-		"step":   h.engine.GetCurrentStep(),
-	})
-}

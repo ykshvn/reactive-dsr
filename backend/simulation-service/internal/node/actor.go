@@ -2,7 +2,9 @@
 package node
 
 import (
+	"container/list"
 	"fmt"
+	"sync"
 
 	"github.com/ykshvn/reactive-dsr/shared/events"
 	"github.com/ykshvn/reactive-dsr/simulation-service/internal/domain"
@@ -19,6 +21,8 @@ type NodeActor struct {
 	RouteCache   map[int][]int
 	SeenRequests map[string]bool
 	Inbox        chan domain.Message
+	NodeQueue    *list.List
+	queueMu      sync.Mutex
 	Hub          *ws.Hub
 	sendMessage  SendMessageFunc
 	log          *zap.Logger
@@ -32,6 +36,7 @@ func NewNodeActor(id int, neighbors []int, hub *ws.Hub, sendMessage SendMessageF
 		RouteCache:   make(map[int][]int),
 		SeenRequests: make(map[string]bool),
 		Inbox:        make(chan domain.Message, 50),
+		NodeQueue:    list.New(),
 		Hub:          hub,
 		sendMessage:  sendMessage,
 		log:          l,
@@ -39,103 +44,64 @@ func NewNodeActor(id int, neighbors []int, hub *ws.Hub, sendMessage SendMessageF
 	}
 }
 
-func (a *NodeActor) Start() {
-	go a.run()
-}
+func (a *NodeActor) Start() { go a.run() }
+func (a *NodeActor) Stop()  { close(a.stop) }
 
-func (a *NodeActor) Stop() {
-	close(a.stop)
+func (a *NodeActor) ResetState() {
+	a.SeenRequests = make(map[string]bool)
+	a.RouteCache = make(map[int][]int)
 }
 
 func (a *NodeActor) run() {
 	for {
 		select {
-		case msg := <-a.Inbox:
-			a.processMessage(msg)
+		case <-a.Inbox:
+
 		case <-a.stop:
 			return
 		}
 	}
 }
 
-func (a *NodeActor) ProcessPendingMessages() {
-	for {
-		select {
-		case msg := <-a.Inbox:
-			fmt.Println("ProcessPendingMessages")
-			a.processMessage(msg)
-		default:
-			return
-		}
-	}
-}
-
-func (a *NodeActor) processMessage(msg domain.Message) {
+func (a *NodeActor) ProcessSingleMessage(msg domain.Message) events.Event {
 	switch msg.Type {
 	case domain.MessageRREQ:
-		a.handleRREQ(msg.RREQ)
+		return a.handleRREQStep(msg.RREQ)
 	case domain.MessageRREP:
-		a.handleRREP(msg.RREP)
+		return a.handleRREPStep(msg.RREP)
+	default:
+		return events.Event{Step: -1}
 	}
 }
 
-func (a *NodeActor) sendRREP(rreq *domain.RREQ) {
-	rrep := &domain.RREP{
-		RequestID:   rreq.RequestID,
-		Source:      rreq.Source,
-		Destination: rreq.Destination,
-		Route:       rreq.RouteSoFar,
-	}
-
-	a.log.Info(
-		"Route found! Sending RREP",
-		zap.Int("node", a.ID),
-		zap.Int("to", rreq.Source),
-		zap.Any("route", rrep.Route),
-	)
-
-	if len(rrep.Route) > 1 {
-		nextHop := rrep.Route[len(rrep.Route)-2]
-
-		a.sendMessage(
-			domain.Message{
-				Type: domain.MessageRREP,
-				From: a.ID,
-				To:   nextHop,
-				RREP: rrep,
-			},
-		)
-	} else {
-		a.log.Warn("Route too short", zap.Any("route", rrep.Route))
-	}
-
-	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREPReceived, events.RREPPayload{
-		From:  a.ID,
-		To:    rreq.Source,
-		Route: rrep.Route,
-	}))
-}
-
-func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
+func (a *NodeActor) handleRREQStep(rreq *domain.RREQ) events.Event {
 	requestKey := fmt.Sprintf("%d-%d", rreq.RequestID, rreq.Source)
 
+	rreq.RouteSoFar = append(append([]int(nil), rreq.RouteSoFar...), a.ID)
 	if a.SeenRequests[requestKey] {
-		return
+		return events.NewEvent(events.EventRREQDropped, events.RREQPayload{
+			From:       a.ID,
+			To:         rreq.Destination,
+			RouteSoFar: rreq.RouteSoFar,
+			RequestID:  rreq.RequestID,
+		})
 	}
 	a.SeenRequests[requestKey] = true
 
-	rreq.RouteSoFar = append(rreq.RouteSoFar, a.ID)
+	var resultEvent events.Event
 
 	if a.ID == rreq.Destination {
-		a.sendRREP(rreq)
+		return a.sendRREPStep(rreq)
 	}
 
 	for _, neighbor := range a.Neighbors {
-		if len(rreq.RouteSoFar) > 0 && neighbor == rreq.RouteSoFar[len(rreq.RouteSoFar)-1] {
+		if len(rreq.RouteSoFar) > 1 && neighbor == rreq.RouteSoFar[len(rreq.RouteSoFar)-2] {
 			continue
 		}
 
-		a.sendMessage(domain.Message{
+		routeCopy := append([]int(nil), rreq.RouteSoFar...)
+
+		msg := domain.Message{
 			Type: domain.MessageRREQ,
 			From: a.ID,
 			To:   neighbor,
@@ -143,51 +109,90 @@ func (a *NodeActor) handleRREQ(rreq *domain.RREQ) {
 				RequestID:   rreq.RequestID,
 				Source:      rreq.Source,
 				Destination: rreq.Destination,
-				RouteSoFar:  rreq.RouteSoFar,
+				RouteSoFar:  routeCopy,
 			},
+		}
+
+		a.sendMessage(msg)
+	}
+
+	if resultEvent.Step != -1 {
+		resultEvent = events.NewEvent(events.EventRREQProcessed, events.RREQPayload{
+			From:       rreq.Source,
+			To:         rreq.Destination,
+			RouteSoFar: rreq.RouteSoFar,
+			RequestID:  rreq.RequestID,
 		})
 	}
 
-	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREQPropagated, events.RREQPayload{
-		From:       a.ID,
-		To:         rreq.Destination,
-		RouteSoFar: rreq.RouteSoFar,
-		RequestID:  rreq.RequestID,
-	}))
+	return resultEvent
 }
 
-func (a *NodeActor) handleRREP(rrep *domain.RREP) {
-	a.log.Info("RREP received",
-		zap.Int("node", a.ID),
-		zap.Int("destination", rrep.Destination),
-		zap.Any("full_route", rrep.Route),
-	)
-
-	if a.ID != rrep.Source && len(rrep.Route) > 1 {
-		myself := findMyself(rrep.Route, a.ID)
-		nextHop := rrep.Route[myself-1]
-
-		a.sendMessage(domain.Message{
-			Type: domain.MessageRREP,
-			From: a.ID,
-			To:   nextHop,
-			RREP: rrep,
-		})
-
-		a.log.Info("Forwarding RREP",
-			zap.Int("from", a.ID),
-			zap.Int("to", nextHop),
-		)
+func (a *NodeActor) sendRREPStep(rreq *domain.RREQ) events.Event {
+	rrep := &domain.RREP{
+		RequestID:   rreq.RequestID,
+		Source:      rreq.Source,
+		Destination: rreq.Destination,
+		Route:       append([]int(nil), rreq.RouteSoFar...),
 	}
 
-	a.Hub.BroadcastEvent(events.NewEvent(events.EventRREPReceived, events.RREPPayload{
+	if len(rrep.Route) <= 1 {
+		return events.Event{Step: -1}
+	}
+
+	nextHop := rrep.Route[len(rrep.Route)-2]
+
+	a.sendMessage(domain.Message{
+		Type: domain.MessageRREP,
+		From: a.ID,
+		To:   nextHop,
+		RREP: rrep,
+	})
+
+	return events.NewEvent(events.EventRREPGenerated, events.RREPPayload{
 		From:  a.ID,
-		To:    rrep.Source,
+		To:    rreq.Source,
 		Route: rrep.Route,
-	}))
+	})
 }
 
-func findMyself(slice []int, target int) int {
+func (a *NodeActor) handleRREPStep(rrep *domain.RREP) events.Event {
+	if a.ID != rrep.Source && len(rrep.Route) > 1 {
+		myself := findIndex(rrep.Route, a.ID)
+		if myself > 0 {
+			nextHop := rrep.Route[myself-1]
+
+			a.sendMessage(domain.Message{
+				Type: domain.MessageRREP,
+				From: a.ID,
+				To:   nextHop,
+				RREP: rrep,
+			})
+
+			return events.NewEvent(events.EventRREPForwarded, events.RREPPayload{
+				From:  a.ID,
+				To:    nextHop,
+				Route: rrep.Route,
+			})
+		}
+	}
+
+	if a.ID == rrep.Source {
+		return events.NewEvent(events.EventRouteDiscovered, events.RREPPayload{
+			From:  rrep.Source,
+			To:    rrep.Destination,
+			Route: rrep.Route,
+		})
+	}
+
+	return events.NewEvent(events.EventRREPReceived, events.RREPPayload{
+		From:  rrep.Source,
+		To:    rrep.Destination,
+		Route: rrep.Route,
+	})
+}
+
+func findIndex(slice []int, target int) int {
 	for i, v := range slice {
 		if v == target {
 			return i

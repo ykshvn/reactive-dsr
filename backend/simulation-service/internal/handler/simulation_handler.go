@@ -2,7 +2,6 @@ package handler
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -36,7 +35,7 @@ func (h *SimulationHandler) StartRouteDiscovery(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	h.engine.StartRouteDiscovery(src, dst)
+	h.engine.StartStepRouteDiscovery(src, dst)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]interface{}{
@@ -48,32 +47,24 @@ func (h *SimulationHandler) StartRouteDiscovery(w http.ResponseWriter, r *http.R
 }
 
 func (h *SimulationHandler) Step(w http.ResponseWriter, r *http.Request) {
-	h.engine.Step()
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":  "ok",
-		"step":    h.engine.GetCurrentStep(),
-		"message": "Simulation step executed",
-	})
-}
-
-func (h *SimulationHandler) Run(w http.ResponseWriter, r *http.Request) {
-	src := 0
-	dst := 0
-
-	if s := r.URL.Query().Get("src"); s != "" {
-		src, _ = strconv.Atoi(s)
-	}
-	if d := r.URL.Query().Get("dst"); d != "" {
-		dst, _ = strconv.Atoi(d)
+	event, err := h.engine.Step()
+	if err != nil {
+		http.Error(w, `{"error": "step failed"}`, http.StatusInternalServerError)
+		return
 	}
 
-	h.engine.StartRouteDiscovery(src, dst)
+	response := map[string]interface{}{
+		"status":      "ok",
+		"step":        h.engine.GetCurrentStep(),
+		"queueLength": h.engine.GetQueueLength(),
+	}
+
+	if event.Step != -1 {
+		response["event"] = event
+	} else {
+		response["message"] = "No events to process"
+	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]string{
-		"status":  "ok",
-		"message": fmt.Sprintf("Route discovery started from %d to %d", src, dst),
-	})
+	json.NewEncoder(w).Encode(response)
 }
